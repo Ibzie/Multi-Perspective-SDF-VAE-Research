@@ -1,0 +1,31 @@
+# Multi-Perspective SDF-VAE Research Requirements
+
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+pillow>=9.0.0
+
+# Data
+medmnist>=2.2.3
+
+# Visualization & Analysis
+matplotlib>=3.7.0
+seaborn>=0.12.0
+scikit-learn>=1.2.0
+scipy>=1.10.0
+
+# Notebooks
+jupyter>=1.0.0
+ipykernel>=6.0.0
+ipywidgets>=8.0.0
+
+# Progress bars
+tqdm>=4.65.0
+
+# Utilities
+pyyaml>=6.0
+
+# Optional (for advanced analysis)
+scikit-image>=0.20.0
+pandas>=2.0.0
