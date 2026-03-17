@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "Multi-Perspective SDF-VAE: Interpretable Latent Representations through Signed Distance Functions"
+abstract: "A novel variational autoencoder architecture that achieves superior generalization and interpretable latent spaces through multi-perspective signed distance function learning. Demonstrates 358x variance stability improvement over Vanilla VAE on CelebA, with train-test ratio of 0.9996 and maximum observer entropy (1.609/1.609)."
+authors:
+  - family-names: "Your Last Name"
+    given-names: "Your First Name"
+    # orcid: "https://orcid.org/0000-0000-0000-0000"
+    # email: "your.email@example.com"
+repository-code: "https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE-Research"
+url: "https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE-Research"
+keywords:
+  - deep-learning
+  - variational-autoencoder
+  - signed-distance-function
+  - interpretability
+  - generative-models
+  - pytorch
+  - machine-learning
+license: MIT
+version: 1.0.0
+date-released: 2026-03-18

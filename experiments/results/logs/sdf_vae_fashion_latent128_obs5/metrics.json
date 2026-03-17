@@ -1,0 +1,12 @@
+{
+  "experiment_name": "sdf_vae_fashion_latent128_obs5",
+  "total_epochs": 99,
+  "total_steps": 84256,
+  "total_time": 4263.642840385437,
+  "generalization_gap": {},
+  "observer_statistics": {},
+  "final_metrics": {
+    "train_loss": null,
+    "val_loss": null
+  }
+}

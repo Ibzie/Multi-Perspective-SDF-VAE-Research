@@ -1,12 +1,25 @@
 # Setup Instructions
 
+## Requirements
+
+- Python 3.11+
+- CUDA-capable GPU recommended (RTX 3070 or better for CelebA training)
+- ~2GB disk space for CelebA images (not included in repo)
+
 ## Installation
 
 ### 1. Create Virtual Environment
+
+**Using uv (recommended):**
 ```bash
-cd Multi-Perspective-SDF-VAE-Research
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+uv venv --python 3.11
+source .venv/bin/activate
+```
+
+**Using standard venv:**
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 ```
 
 ### 2. Install Dependencies
@@ -16,185 +29,88 @@ pip install -r requirements.txt
 
 ### 3. Verify Installation
 ```bash
-python -c "import torch; print(f'PyTorch: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
+python -c "import torch; print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}')"
 ```
 
-## Quick Start
+## Dataset Setup
 
-### Train All Models (Fashion-MNIST)
-```bash
-bash experiments/quick_start.sh
-```
+### CelebA (Primary Dataset)
 
-This will train:
-- Multi-Perspective SDF-VAE
-- Vanilla VAE (baseline)
-- β-VAE (baseline, β=4.0)
+1. Download the aligned & cropped CelebA images from the [official source](https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) or Kaggle
+2. Place the 202,599 `.jpg` files at:
+   ```
+   data/celeba/img_align_celeba/
+   ```
 
-### Train Individual Models
+The data loader handles train/val/test splits (162,770 / 19,867 / ~19,962) automatically using the standard CelebA partition file, or falls back to an 80/10/10 random split.
 
-**Multi-Perspective SDF-VAE:**
-```bash
-python experiments/train_main_model.py \
-    --dataset fashion \
-    --epochs 100 \
-    --batch_size 64 \
-    --latent_dim 128 \
-    --num_observers 5
-```
+### Fashion-MNIST (Calibration / OOD validation)
 
-**Vanilla VAE:**
-```bash
-python experiments/train_baselines.py \
-    --model vanilla \
-    --dataset fashion \
-    --epochs 100 \
-    --batch_size 64 \
-    --latent_dim 128
-```
+Downloaded automatically on first run via torchvision.
 
-**β-VAE:**
-```bash
-python experiments/train_baselines.py \
-    --model beta \
-    --beta 4.0 \
-    --dataset fashion \
-    --epochs 100 \
-    --batch_size 64 \
-    --latent_dim 128
-```
+## Training
 
-### Medical MNIST
-
-Replace `--dataset fashion` with `--dataset medical` in any command:
+### CelebA (Full Run)
 
 ```bash
-python experiments/train_main_model.py \
-    --dataset medical \
-    --epochs 50 \
-    --batch_size 64
+# SDF-VAE (~681s/epoch, ~19 hours total on GPU)
+python experiments/train_main_model.py --dataset celeba --epochs 100 --batch_size 64
+
+# Vanilla VAE baseline (~43s/epoch)
+python experiments/train_baselines.py --model vanilla --dataset celeba --epochs 100
+
+# beta-VAE baseline (~38s/epoch)
+python experiments/train_baselines.py --model beta --beta 4.0 --dataset celeba --epochs 100
 ```
 
-## Directory Structure After Training
+Checkpoints and logs save to `results/checkpoints/` and `results/logs/`.
+
+### Key Training Arguments
 
 ```
-Multi-Perspective-SDF-VAE-Research/
-├── data/                          # Downloaded datasets
-│   ├── FashionMNIST/
-│   └── medmnist/
-├── results/
-│   ├── checkpoints/               # Model checkpoints
-│   │   ├── sdf_vae_fashion/
-│   │   ├── vanilla_vae_fashion/
-│   │   └── beta_vae_fashion/
-│   └── logs/                      # Training logs & metrics
-│       ├── sdf_vae_fashion/
-│       │   ├── metrics.pkl
-│       │   └── metrics.json
-│       └── ...
-└── notebooks/                     # Analysis notebooks (coming soon)
+--dataset celeba|fashion      Dataset to use
+--epochs INT                  Training epochs (default: 100)
+--batch_size INT              Batch size (default: 64)
+--latent_dim INT              Latent dimension (default: 128)
+--lr FLOAT                    Learning rate (default: 1e-4)
+--device cuda|cpu             Device (auto-detected if omitted)
+--num_observers INT           Number of SDF observers (SDF-VAE only, default: 5)
 ```
 
-## Analysis
-
-After training, use the notebooks to analyze results:
+## Evaluation
 
 ```bash
-jupyter notebook notebooks/
+# Quantitative comparison across all models
+python experiments/compare_models.py
+
+# Calibration (ECE) -- uses Fashion-MNIST
+python experiments/evaluate_calibration.py
+
+# OOD detection (AUROC) -- Fashion-MNIST vs MNIST
+python experiments/evaluate_ood_detection.py
 ```
 
-Available notebooks:
-1. `01_latent_space_exploration.ipynb` - Latent space controllability
-2. `02_observer_specialization.ipynb` - Observer interpretation
-3. `03_baseline_comparisons.ipynb` - Model comparison
-4. `04_scalability_analysis.ipynb` - Computational analysis
-5. `05_generalization_study.ipynb` - Perfect generalization analysis
-6. `06_paper_figures.ipynb` - Publication figures
+## Paper Figures
 
-## Command-Line Arguments
-
-### Common Arguments
-
-```
---dataset fashion|medical    Dataset to use
---epochs INT                 Number of training epochs
---batch_size INT            Batch size
---latent_dim INT            Latent space dimension
---lr FLOAT                  Learning rate
---device cuda|cpu           Device to use
---experiment_name STR       Custom experiment name
+```bash
+# Requires trained CelebA checkpoints in results/checkpoints/
+python paper/generate_paper_figures.py
+# Outputs to paper/figures/
 ```
 
-### Multi-Perspective SDF-VAE Specific
+## Hardware Notes
 
-```
---num_observers INT         Number of observers (default: 5)
---light_dim INT            Light source dimension (default: 256)
---projection_dim INT       Observer projection dimension (default: 256)
---warmup_epochs INT        Curriculum warmup epochs (default: 5)
-```
+| Configuration | SDF-VAE/epoch | Baselines/epoch |
+|--------------|--------------|----------------|
+| RTX 4060 8GB | ~681s | ~40s |
+| CPU only | ~60-90 min | ~5 min |
 
-### β-VAE Specific
-
-```
---beta FLOAT               Beta weight on KL divergence (default: 4.0)
-```
+For GPU with less than 8GB VRAM, reduce batch size: `--batch_size 32`
 
 ## Troubleshooting
 
-### CUDA Out of Memory
+**CUDA out of memory**: Use `--batch_size 32` or `--batch_size 16`
 
-Reduce batch size:
-```bash
-python experiments/train_main_model.py --batch_size 32
-```
+**CelebA images not found**: Verify `data/celeba/img_align_celeba/` contains `.jpg` files
 
-Or reduce image size:
-```bash
-python experiments/train_main_model.py --image_size 32
-```
-
-### Slow Training
-
-Increase number of workers:
-```bash
-python experiments/train_main_model.py --num_workers 8
-```
-
-### medmnist Installation Issues
-
-If automatic download fails:
-```bash
-pip install --upgrade medmnist
-```
-
-## Hardware Requirements
-
-**Minimum:**
-- CPU: 4 cores
-- RAM: 8GB
-- GPU: Optional (CUDA-capable with 4GB+ VRAM)
-
-**Recommended:**
-- CPU: 8+ cores
-- RAM: 16GB+
-- GPU: CUDA-capable with 8GB+ VRAM (e.g., RTX 3070, RTX 4060)
-
-**Training Times** (Fashion-MNIST, 100 epochs):
-- GPU (RTX 4060): ~2-3 hours
-- CPU only: ~12-15 hours
-
-## Next Steps
-
-1. Train models using quick_start.sh
-2. Analyze results in notebooks
-3. Compare with baselines
-4. Generate publication figures
-5. Write research paper
-
-## Support
-
-For issues or questions:
-1. Check this setup guide
-2. Review code documentation
-3. Check GitHub issues (if applicable)
+**Slow training**: Increase workers with `--num_workers 8`

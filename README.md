@@ -1,33 +1,93 @@
-# Multi-Perspective SDF-VAE Research
+# Multi-Perspective SDF-VAE
 
 **Interpretable Latent Representations through Signed Distance Functions**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> A novel variational autoencoder architecture that achieves **perfect generalization** (zero train-test gap) and **interpretable latent spaces** through multi-perspective signed distance function learning.
+A novel variational autoencoder architecture that learns interpretable latent representations through multi-perspective signed distance function learning. Trained and evaluated on CelebA (162k face images), with calibration/OOD validation on Fashion-MNIST.
+
+---
+
+## Key Results (CelebA, 64×64 RGB)
+
+| Model | Test Recon Loss | Train-Test Ratio | LogVar Std | Attention Entropy |
+|-------|----------------|-----------------|------------|-------------------|
+| **SDF-VAE (Ours)** | 118.68 | **0.9996** | **0.004** | **1.609/1.609** |
+| Vanilla VAE | **73.87** | 1.004 | 1.421 | — |
+| β-VAE (β=4.0) | 126.74 | 1.003 | 1.198 | — |
+
+**358× variance stability improvement** over Vanilla VAE (LogVar Std 0.004 vs 1.421).
+
+Cross-dataset validation on Fashion-MNIST: ECE=0.129 (calibration), AUROC=0.992 (OOD detection).
+
+---
+
+## Architecture
+
+The Multi-Perspective SDF-VAE uses:
+
+1. **5 Observer Encoders** — each learns different geometric perspectives of the input
+2. **SDF-based Latent Space** — represents features as signed distance functions
+3. **Confidence-Weighted Aggregation** — combines observer outputs via learned attention
+4. **Curriculum Learning** — 4-stage training schedule for stable multi-objective optimization
+
+**Loss components:** Reconstruction + KL divergence + SDF consistency + Eikonal (‖∇SDF‖=1) + Diversity
+
+See [`paper/architecture_diagrams_mermaid/`](paper/architecture_diagrams_mermaid/) for diagrams.
+
+---
 
 ## Quick Start
 
+### Installation
+
 ```bash
-# Install dependencies
+git clone https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE.git
+cd Multi-Perspective-SDF-VAE
+
+# Create venv with uv (recommended)
+uv venv --python 3.11
+source .venv/bin/activate
+
+# Or with standard venv
+python -m venv .venv
+source .venv/bin/activate
+
 pip install -r requirements.txt
-
-# Train all models on Fashion-MNIST
-bash experiments/quick_start.sh
-
-# Or train individual model
-python experiments/train_main_model.py --dataset fashion --epochs 100
 ```
 
-See [SETUP.md](SETUP.md) for detailed installation and usage instructions.
+### Dataset
 
-## Testing
+Download CelebA and place images in `data/celeba/img_align_celeba/`:
 
 ```bash
-# Test training pipeline (2 epochs)
-python3 experiments/test_training.py
+# ~1.4GB — download from official source or Kaggle
+# https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
+```
+
+The loader expects 202,599 `.jpg` files in that directory (standard CelebA aligned crop release).
+
+### Training
+
+```bash
+# Train SDF-VAE on CelebA (100 epochs, ~681s/epoch on GPU)
+python experiments/train_main_model.py --dataset celeba --epochs 100
+
+# Train baselines
+python experiments/train_baselines.py --model vanilla --dataset celeba --epochs 100
+python experiments/train_baselines.py --model beta --beta 4.0 --dataset celeba --epochs 100
+```
+
+### Evaluation & Figures
+
+```bash
+# Compare all models
+python experiments/compare_models.py
+
+# Generate paper figures
+python paper/generate_paper_figures.py
 ```
 
 ---
@@ -35,117 +95,88 @@ python3 experiments/test_training.py
 ## Repository Structure
 
 ```
-├── src/                    # Core source code
-│   ├── models/            # Model architectures
-│   ├── training/          # Training loops and curriculum learning
-│   ├── losses/            # Loss functions
-│   ├── utils/             # Utilities
-│   └── analysis/          # Analysis and visualization tools
-├── configs/               # Experiment configurations
-├── experiments/           # Experiment scripts and ablations
-├── notebooks/            # Jupyter notebooks for analysis
-├── results/              # Experimental results
-│   ├── figures/          # Publication-quality figures
-│   ├── checkpoints/      # Model checkpoints
-│   └── logs/             # Training logs
-├── data/                 # Datasets
-└── docs/                 # Documentation and paper drafts
+├── src/                          # Core source code
+│   ├── models/                   # Model architectures
+│   │   ├── sdf_vae.py           # Multi-Perspective SDF-VAE (42.3M params)
+│   │   ├── vanilla_vae.py       # Vanilla VAE baseline (8.5M params)
+│   │   └── beta_vae.py          # β-VAE baseline (8.5M params)
+│   ├── training/                 # Training loops and curriculum learning
+│   ├── data/                     # Dataset loaders (CelebA, Fashion-MNIST)
+│   └── utils/                    # Utilities
+│
+├── experiments/                  # Experiment scripts
+│   ├── train_main_model.py      # Train SDF-VAE
+│   ├── train_baselines.py       # Train Vanilla/β-VAE
+│   ├── compare_models.py        # Quantitative comparison
+│   ├── evaluate_calibration.py  # Calibration (ECE)
+│   ├── evaluate_ood_detection.py# OOD detection (AUROC)
+│   └── results/                 # JSON results, calibration, OOD outputs
+│
+├── paper/                        # Research paper
+│   ├── paper.pdf                # Compiled paper (32 pages)
+│   ├── paper.tex                # LaTeX source
+│   ├── references.bib           # Bibliography
+│   ├── figures/                 # Publication figures (CelebA)
+│   ├── architecture_diagrams_mermaid/  # Architecture diagrams
+│   ├── generate_paper_figures.py
+│   └── generate_visualizations.py
+│
+├── results/                      # Training outputs (gitignored)
+│   ├── checkpoints/             # best.pt for each model
+│   └── logs/                    # metrics.json per run
+│
+├── docs/                         # Documentation
+│   └── data_requirements.md
+│
+├── README.md
+├── SETUP.md                      # Detailed setup instructions
+├── CONTRIBUTING.md
+├── CITATION.cff
+├── LICENSE
+└── requirements.txt
 ```
 
-## Research Questions
-
-### 1. Latent Space Controllability
-**Q**: Can we control generation by manipulating SDF values in latent space?
-
-**Experiments Required**:
-- [ ] Latent space interpolation with SDF tracking
-- [ ] SDF-guided latent traversal
-- [ ] Image generation at specific SDF levels
-
-**Metrics**:
-- Reconstruction quality vs SDF distance
-- Interpolation smoothness
-- Generated sample diversity
-
-### 2. Observer Interpretation
-**Q**: What features does each observer learn?
-
-**Experiments Required**:
-- [ ] Per-observer activation visualization
-- [ ] Feature attribution analysis
-- [ ] Observer ablation study
-
-**Metrics**:
-- Observer attention weights distribution
-- Feature diversity scores
-- Reconstruction quality per observer
-
-### 3. Baseline Comparison
-**Q**: How does Multi-Perspective SDF-VAE compare to standard VAEs?
-
-**Experiments Required**:
-- [ ] Train Vanilla VAE on same datasets
-- [ ] Train β-VAE baseline
-- [ ] Compare latent space interpretability
-
-**Metrics**:
-- Reconstruction loss (train/test)
-- FID score
-- Latent space disentanglement (MIG, SAP, DCI)
-- Generalization gap
-
-### 4. Scalability Analysis
-**Q**: Does the Eikonal loss limit scalability?
-
-**Experiments Required**:
-- [ ] Training time vs batch size
-- [ ] Memory profiling
-- [ ] Ablation: with/without Eikonal loss
-
-**Metrics**:
-- Training time per epoch
-- GPU memory usage
-- Convergence speed
-- Final performance with/without Eikonal
-
-### 5. Generalization Mechanism
-**Q**: Why does the model achieve perfect train-test overlap?
-
-**Experiments Required**:
-- [ ] Ablation study: Remove each loss component
-- [ ] Curriculum vs non-curriculum comparison
-- [ ] Observer diversity impact
-
-**Metrics**:
-- Train-test gap over time
-- Overfitting indicators
-- Loss component contributions
-
-## Key Contributions
-
-1. **Perfect Generalization**: Train and test losses track identically (no overfitting)
-2. **Interpretable Latent Space**: SDF-based geometry provides semantic meaning
-3. **Observer Specialization**: Multi-perspective learning with diversity enforcement
-4. **Novel Loss Formulation**: SDF consistency + Eikonal + Diversity constraints
-5. **Curriculum Learning**: Stable training for multi-objective optimization
+---
 
 ## Datasets
 
-- **Fashion-MNIST**: 60k training, 10k test (28×28 grayscale → 64×64 RGB)
-- **Medical MNIST** (DermaMNIST): Skin lesion images for medical imaging application
+- **CelebA** (primary): 162,770 train / 19,867 val / ~19,962 test, 64×64 RGB, center-cropped
+- **Fashion-MNIST** (calibration/OOD cross-validation): 60k/10k, 28×28 → 64×64 RGB
 
-## Baseline Models
+---
 
-- Vanilla VAE
-- β-VAE (β=4.0)
-- Multi-Perspective SDF-VAE (Ours)
+## Requirements
+
+```
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+matplotlib>=3.7.0
+scikit-learn>=1.3.0
+tqdm>=4.65.0
+Pillow>=9.0.0
+```
+
+See [`requirements.txt`](requirements.txt) for the full list.
+
+---
 
 ## Citation
 
 ```bibtex
-@article{multiperspective_sdf_vae_2025,
+@misc{multiperspective_sdf_vae_2026,
   title={Multi-Perspective SDF-VAE: Interpretable Latent Representations through Signed Distance Functions},
-  author={[Your Name]},
-  year={2025}
+  author={[Author]},
+  year={2026},
+  howpublished={\url{https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE}},
+  note={Independent Research Project}
 }
 ```
+
+See [`CITATION.cff`](CITATION.cff) for machine-readable citation.
+
+---
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

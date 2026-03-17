@@ -22,7 +22,7 @@ import argparse
 
 from src.models import MultiPerspectiveSDFVAE
 from src.training import Trainer
-from src.data import get_fashion_mnist_loaders, get_medical_mnist_loaders
+from src.data import get_fashion_mnist_loaders, get_medical_mnist_loaders, get_celeba_loaders
 
 
 def parse_args():
@@ -30,8 +30,8 @@ def parse_args():
 
     # Dataset
     parser.add_argument('--dataset', type=str, default='fashion',
-                        choices=['fashion', 'medical'],
-                        help='Dataset to use (fashion or medical)')
+                        choices=['fashion', 'medical', 'celeba'],
+                        help='Dataset to use (fashion, medical, or celeba)')
     parser.add_argument('--data_root', type=str, default='./data',
                         help='Root directory for datasets')
 
@@ -117,8 +117,16 @@ def main():
             image_size=args.image_size,
             augment_train=True
         )
-    else:  # medical
+    elif args.dataset == 'medical':
         train_loader, val_loader, test_loader = get_medical_mnist_loaders(
+            data_root=args.data_root,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            image_size=args.image_size,
+            augment_train=True
+        )
+    else:  # celeba
+        train_loader, val_loader, test_loader = get_celeba_loaders(
             data_root=args.data_root,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
@@ -155,8 +163,7 @@ def main():
         optimizer,
         mode='min',
         factor=0.5,
-        patience=10,
-        verbose=True
+        patience=10
     )
 
     # Setup device

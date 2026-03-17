@@ -1,0 +1,12 @@
+Perceptual Quality Metrics Comparison
+============================================================
+
+Model           FID          LPIPS        SSIM        
+------------------------------------------------------------
+SDF-VAE         203.3656     0.0029       0.7618      
+Vanilla VAE     69.0789      0.0020       0.8554      
+β-VAE           97.8564      0.0024       0.8011      
+
+============================================================
+Lower is better for FID and LPIPS
+Higher is better for SSIM (max 1.0)

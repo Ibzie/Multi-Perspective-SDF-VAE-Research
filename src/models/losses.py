@@ -61,9 +61,10 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
         self,
         alpha: float = 1.0,
         beta: float = 0.2,
-        gamma: float = 0.1,
-        delta: float = 0.05,
-        epsilon: float = 0.1
+        gamma: float = 1.0,  # Increased from 0.1
+        delta: float = 0.5,  # Increased from 0.05
+        epsilon: float = 0.1,
+        zeta: float = 0.5    # NEW: SDF supervision weight
     ):
         super().__init__()
 
@@ -72,6 +73,7 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
         self.gamma = gamma
         self.delta = delta
         self.epsilon = epsilon
+        self.zeta = zeta
 
     def forward(
         self,
@@ -137,13 +139,21 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
         # Observers should learn different features (minimize similarity)
         diversity_loss = self._compute_diversity_loss(feature_projections)
 
+        # 6. SDF SUPERVISION LOSS
+        # SDF should correlate with reconstruction quality
+        # Good reconstruction → low SDF, bad reconstruction → high SDF
+        sdf_supervision_loss = self._compute_sdf_supervision(
+            sdf_values, reconstruction, x, batch_size, device
+        )
+
         # TOTAL LOSS
         total_loss = (
             self.alpha * recon_loss +
             self.beta * kl_loss +
             self.gamma * sdf_consistency_loss +
             self.delta * eikonal_loss -
-            self.epsilon * diversity_loss  # Negative to maximize diversity
+            self.epsilon * diversity_loss +  # Negative to maximize diversity
+            self.zeta * sdf_supervision_loss  # NEW: Supervise SDF with recon error
         )
 
         # Final safety check
@@ -160,7 +170,8 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
             'kl': kl_loss,
             'sdf_consistency': sdf_consistency_loss,
             'eikonal': eikonal_loss,
-            'diversity': diversity_loss
+            'diversity': diversity_loss,
+            'sdf_supervision': sdf_supervision_loss
         }
 
     def _compute_sdf_consistency(self, sdf_values: torch.Tensor) -> torch.Tensor:
@@ -309,13 +320,61 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
 
         return diversity_loss
 
+    def _compute_sdf_supervision(
+        self,
+        sdf_values: torch.Tensor,
+        reconstruction: torch.Tensor,
+        x: torch.Tensor,
+        batch_size: int,
+        device: torch.device
+    ) -> torch.Tensor:
+        """
+        Compute SDF supervision loss based on reconstruction quality
+
+        The SDF should predict reconstruction difficulty:
+        - Good reconstruction (low error) → low |SDF| (close to manifold)
+        - Bad reconstruction (high error) → high |SDF| (far from manifold)
+
+        Args:
+            sdf_values: [B, num_observers, 1]
+            reconstruction: [B, C, H, W]
+            x: [B, C, H, W]
+            batch_size: Batch size
+            device: Device
+
+        Returns:
+            SDF supervision loss (scalar)
+        """
+        try:
+            # Compute per-sample reconstruction error
+            recon_error = F.mse_loss(reconstruction, x, reduction='none')
+            recon_error_per_sample = recon_error.mean(dim=[1, 2, 3])  # [B]
+
+            # Normalize error to [0, 1] range and scale to SDF range [-0.1, 0.1]
+            # Use tanh to bound the target
+            target_sdf = torch.tanh(recon_error_per_sample * 10) * 0.1  # [B]
+            target_sdf = target_sdf.unsqueeze(1)  # [B, 1]
+
+            # Mean SDF across observers
+            mean_sdf = sdf_values.mean(dim=1)  # [B, 1]
+
+            # MSE loss between predicted SDF and target
+            supervision_loss = F.mse_loss(mean_sdf, target_sdf) * 1000
+
+            return supervision_loss
+
+        except Exception as e:
+            print(f"WARNING: Error computing SDF supervision loss: {e}")
+            return torch.tensor(0.0, device=device)
+
     def update_weights(
         self,
         alpha: Optional[float] = None,
         beta: Optional[float] = None,
         gamma: Optional[float] = None,
         delta: Optional[float] = None,
-        epsilon: Optional[float] = None
+        epsilon: Optional[float] = None,
+        zeta: Optional[float] = None
     ):
         """
         Update loss weights (useful for curriculum learning)
@@ -326,6 +385,7 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
             gamma: New SDF consistency weight
             delta: New Eikonal weight
             epsilon: New diversity weight
+            zeta: New SDF supervision weight
         """
         if alpha is not None:
             self.alpha = alpha
@@ -337,3 +397,5 @@ class MultiPerspectiveSDFVAELoss(nn.Module):
             self.delta = delta
         if epsilon is not None:
             self.epsilon = epsilon
+        if zeta is not None:
+            self.zeta = zeta
