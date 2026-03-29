@@ -1,0 +1,77 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data (large datasets — download separately, see SETUP.md)
+data/FashionMNIST/
+data/MNIST/
+data/celeba/
+data/*.gz
+experiments/data/
+
+# Model checkpoints (large binary files)
+results/checkpoints/
+experiments/results/checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Training logs and large raw data dumps (keep PNGs and summary JSONs)
+results/logs/
+experiments/results/logs/
+experiments/results/**/*_full.json
+experiments/results/diagnostics/**
+!experiments/results/diagnostics/*.png
+experiments/results/generalization_tests/**
+!experiments/results/generalization_tests/*.png
+experiments/results/perceptual_metrics/**
+!experiments/results/perceptual_metrics/*.png
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+texput.log
+
+# Archives
+*.zip
+*.tar.gz
+*.tar.bz2
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code internal
+.claude/
+
+paper/figures/**/*.pdf
