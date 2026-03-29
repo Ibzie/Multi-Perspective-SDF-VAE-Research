@@ -96,6 +96,23 @@ class Trainer:
         self.global_step = 0
         self.best_val_loss = float('inf')
 
+        # Detailed loss history for training curves
+        self.loss_history = {
+            'epochs': [],
+            'total_loss_train': [],
+            'total_loss_val': [],
+            'recon_loss_train': [],
+            'recon_loss_val': [],
+            'kl_loss_train': [],
+            'kl_loss_val': [],
+            'sdf_loss_train': [],
+            'sdf_loss_val': [],
+            'eikonal_loss_train': [],
+            'eikonal_loss_val': [],
+            'diversity_loss_train': [],
+            'diversity_loss_val': [],
+        }
+
     def train(
         self,
         num_epochs: int,
@@ -167,6 +184,21 @@ class Trainer:
             }
             self.metrics_logger.log_epoch(epoch, epoch_metrics)
 
+            # Update detailed loss history for training curves
+            self.loss_history['epochs'].append(epoch)
+            self.loss_history['total_loss_train'].append(train_metrics['total_loss'])
+            self.loss_history['total_loss_val'].append(val_metrics['total_loss'])
+            self.loss_history['recon_loss_train'].append(train_metrics.get('reconstruction', 0.0))
+            self.loss_history['recon_loss_val'].append(val_metrics.get('reconstruction', 0.0))
+            self.loss_history['kl_loss_train'].append(train_metrics.get('kl', 0.0))
+            self.loss_history['kl_loss_val'].append(val_metrics.get('kl', 0.0))
+            self.loss_history['sdf_loss_train'].append(train_metrics.get('sdf_consistency', 0.0))
+            self.loss_history['sdf_loss_val'].append(val_metrics.get('sdf_consistency', 0.0))
+            self.loss_history['eikonal_loss_train'].append(train_metrics.get('eikonal', 0.0))
+            self.loss_history['eikonal_loss_val'].append(val_metrics.get('eikonal', 0.0))
+            self.loss_history['diversity_loss_train'].append(train_metrics.get('diversity', 0.0))
+            self.loss_history['diversity_loss_val'].append(val_metrics.get('diversity', 0.0))
+
             # Print epoch summary
             print(f"\nEpoch {epoch+1} Summary:")
             print(f"  Train Loss: {train_metrics['total_loss']:.6f}")
@@ -212,6 +244,13 @@ class Trainer:
         self.metrics_logger.save()
         self.metrics_logger.save_json()
 
+        # Save detailed loss history for training curves
+        loss_history_path = self.metrics_logger.log_dir / 'loss_history.json'
+        import json
+        with open(loss_history_path, 'w') as f:
+            json.dump(self.loss_history, f, indent=2)
+        print(f"✓ Loss history saved to {loss_history_path}")
+
         print(f"\n{'='*70}")
         print("Training complete!")
         print(f"Best validation loss: {self.best_val_loss:.6f}")
@@ -236,7 +275,8 @@ class Trainer:
             'kl': 0.0,
             'sdf_consistency': 0.0,
             'eikonal': 0.0,
-            'diversity': 0.0
+            'diversity': 0.0,
+            'sdf_supervision': 0.0
         }
 
         pbar = tqdm(self.train_loader, desc=f"Training")
@@ -265,9 +305,14 @@ class Trainer:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
 
-            # Accumulate losses
-            for key in epoch_losses.keys():
-                epoch_losses[key] += losses[key].item()
+            # Accumulate losses (map 'total' to 'total_loss')
+            epoch_losses['total_loss'] += losses['total'].item()
+            epoch_losses['reconstruction'] += losses['reconstruction'].item()
+            epoch_losses['kl'] += losses['kl'].item()
+            epoch_losses['sdf_consistency'] += losses['sdf_consistency'].item()
+            epoch_losses['eikonal'] += losses['eikonal'].item()
+            epoch_losses['diversity'] += losses['diversity'].item()
+            epoch_losses['sdf_supervision'] += losses['sdf_supervision'].item()
 
             # Update progress bar
             pbar.set_postfix({'loss': losses['total'].item()})
@@ -301,7 +346,8 @@ class Trainer:
             'kl': 0.0,
             'sdf_consistency': 0.0,
             'eikonal': 0.0,
-            'diversity': 0.0
+            'diversity': 0.0,
+            'sdf_supervision': 0.0
         }
 
         with torch.no_grad():
@@ -323,9 +369,13 @@ class Trainer:
                     encoder_features=output.get('encoder_features')
                 )
 
-                # Accumulate losses
-                for key in epoch_losses.keys():
-                    epoch_losses[key] += losses[key].item()
+                # Accumulate losses (map 'total' to 'total_loss')
+                epoch_losses['total_loss'] += losses['total'].item()
+                epoch_losses['reconstruction'] += losses['reconstruction'].item()
+                epoch_losses['kl'] += losses['kl'].item()
+                epoch_losses['sdf_consistency'] += losses['sdf_consistency'].item()
+                epoch_losses['eikonal'] += losses['eikonal'].item()
+                epoch_losses['diversity'] += losses['diversity'].item()
 
         # Average losses
         num_batches = len(self.val_loader)
@@ -349,7 +399,8 @@ class Trainer:
             'kl': 0.0,
             'sdf_consistency': 0.0,
             'eikonal': 0.0,
-            'diversity': 0.0
+            'diversity': 0.0,
+            'sdf_supervision': 0.0
         }
 
         with torch.no_grad():
@@ -371,9 +422,13 @@ class Trainer:
                     encoder_features=output.get('encoder_features')
                 )
 
-                # Accumulate losses
-                for key in epoch_losses.keys():
-                    epoch_losses[key] += losses[key].item()
+                # Accumulate losses (map 'total' to 'total_loss')
+                epoch_losses['total_loss'] += losses['total'].item()
+                epoch_losses['reconstruction'] += losses['reconstruction'].item()
+                epoch_losses['kl'] += losses['kl'].item()
+                epoch_losses['sdf_consistency'] += losses['sdf_consistency'].item()
+                epoch_losses['eikonal'] += losses['eikonal'].item()
+                epoch_losses['diversity'] += losses['diversity'].item()
 
         # Average losses
         num_batches = len(self.test_loader)

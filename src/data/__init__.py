@@ -6,7 +6,8 @@ from .datasets import (
     FashionMNISTRGB,
     MedicalMNIST,
     get_fashion_mnist_loaders,
-    get_medical_mnist_loaders
+    get_medical_mnist_loaders,
+    get_celeba_loaders,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     'MedicalMNIST',
     'get_fashion_mnist_loaders',
     'get_medical_mnist_loaders',
+    'get_celeba_loaders',
 ]

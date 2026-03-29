@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering
+\caption{Quantitative Comparison of VAE Models on Fashion-MNIST}
+\label{tab:quantitative_results}
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Metric} & \textbf{SDF-VAE} & \textbf{Vanilla VAE} & \textbf{$\beta$-VAE} \\
+\midrule
+\multicolumn{4}{l}{\textit{Reconstruction Quality (MSE, lower is better)}} \\
+Training Loss & 118.73 & \textbf{73.57} & 126.39 \\
+Validation Loss & 119.12 & \textbf{74.34} & 127.42 \\
+Test Loss & 118.68 & \textbf{73.87} & 126.74 \\
+\midrule
+\multicolumn{4}{l}{\textit{Generalization (closer to 1.0 is better)}} \\
+Train-Test Gap & 0.051 & 0.299 & 0.351 \\
+Test/Train Ratio & \textbf{1.000} & 1.004 & 1.003 \\
+\midrule
+\multicolumn{4}{l}{\textit{Latent Space Statistics}} \\
+Mean Latent Norm & \textbf{13.77} & 9.26 & 6.12 \\
+Latent Std Dev & \textbf{1.23} & 0.82 & 0.41 \\
+Avg Log-Variance & -2.00 & -1.83 & -0.74 \\
+LogVar Std & \textbf{0.0040} & 1.42 & 1.20 \\
+\bottomrule
+\end{tabular}
+\end{table}

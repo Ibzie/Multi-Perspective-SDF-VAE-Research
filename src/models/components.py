@@ -154,8 +154,14 @@ class SDFObserver(nn.Module):
 
         self.encoder = nn.Sequential(*layers)
 
-        # SDF prediction head
-        self.to_sdf = nn.Linear(prev_dim, 1)
+        # SDF prediction head with better capacity
+        # Output bounded to prevent constant values
+        self.to_sdf = nn.Sequential(
+            nn.Linear(prev_dim, 64),
+            nn.ReLU(),
+            nn.Linear(64, 1),
+            nn.Tanh()  # Output in [-1, 1] range
+        )
 
         # Feature projection head
         self.to_features = nn.Linear(prev_dim, projection_dim)
@@ -174,6 +180,10 @@ class SDFObserver(nn.Module):
 
         # Compute SDF value (signed distance to image manifold)
         sdf_value = self.to_sdf(features)
+
+        # Scale to meaningful range (output is in [-1, 1] from tanh)
+        # Map to [-0.1, 0.1] for interpretability
+        sdf_value = sdf_value * 0.1
 
         # Compute feature projection for this observer's perspective
         feature_projection = self.to_features(features)
@@ -201,13 +211,6 @@ class ManifoldAggregator(nn.Module):
 
         self.num_observers = num_observers
 
-        # Attention mechanism for aggregating observer perspectives
-        self.attention = nn.Sequential(
-            nn.Linear(projection_dim, 128),
-            SwiGLU(128, 128, 128),
-            nn.Linear(128, 1)
-        )
-
         # Feature fusion layers
         self.feature_fusion = nn.Sequential(
             nn.Linear(projection_dim, projection_dim),
@@ -232,33 +235,30 @@ class ManifoldAggregator(nn.Module):
         Returns:
             mean: Latent mean [B, latent_dim]
             logvar: Latent log-variance [B, latent_dim]
-            attention_weights: Observer attention weights [B, num_observers, 1]
+            sdf_weights: Observer weights based on SDF confidence [B, num_observers, 1]
         """
         batch_size = sdf_values.size(0)
         num_observers = sdf_values.size(1)
 
-        # Calculate attention weights for each observer
-        attention_scores = []
-        for i in range(num_observers):
-            features = feature_projections[:, i, :]
-            score = self.attention(features)
-            attention_scores.append(score)
+        # KEY CHANGE: Use SDF values directly as confidence weights!
+        # SDF ≈ 0 means the observer is confident the point is ON the manifold
+        # |SDF| large means the observer is uncertain
 
-        # Stack and normalize attention scores
-        attention_scores = torch.cat(attention_scores, dim=1)  # [B, num_observers]
+        # Compute confidence from SDF: exp(-|SDF| * scale)
+        # This gives high weight when SDF ≈ 0 (on manifold)
+        sdf_confidence = torch.exp(-torch.abs(sdf_values) * 10.0)  # [B, num_observers, 1]
 
-        # Numerical stability: subtract max before softmax
-        attention_scores = attention_scores - attention_scores.max(dim=1, keepdim=True)[0]
-        attention_weights = F.softmax(attention_scores, dim=1).unsqueeze(2)  # [B, num_observers, 1]
+        # Normalize to get weights (softmax over observers)
+        sdf_weights = sdf_confidence / (sdf_confidence.sum(dim=1, keepdim=True) + 1e-8)
 
-        # Handle NaN in attention weights (numerical safety)
-        if torch.isnan(attention_weights).any():
-            print("WARNING: NaN detected in attention weights, using uniform weights")
-            attention_weights = torch.ones_like(attention_weights) / num_observers
+        # Handle NaN in weights (numerical safety)
+        if torch.isnan(sdf_weights).any():
+            print("WARNING: NaN detected in SDF weights, using uniform weights")
+            sdf_weights = torch.ones_like(sdf_weights) / num_observers
 
-        # Weighted sum of features
+        # Weighted sum of features using SDF-based confidence
         aggregated_features = torch.sum(
-            feature_projections * attention_weights,
+            feature_projections * sdf_weights,
             dim=1
         )  # [B, projection_dim]
 
@@ -272,7 +272,7 @@ class ManifoldAggregator(nn.Module):
         logvar_raw = self.to_latent_logvar(fused_features)
         logvar = torch.sigmoid(logvar_raw) * 4 - 2  # Maps to range [-2, 2]
 
-        return mean, logvar, attention_weights
+        return mean, logvar, sdf_weights
 
     def reparameterize(self, mean: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
         """

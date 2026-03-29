@@ -317,6 +317,116 @@ def get_fashion_mnist_loaders(
     return train_loader, val_loader, test_loader
 
 
+def get_celeba_loaders(
+    data_root: str = './data',
+    batch_size: int = 64,
+    num_workers: int = 4,
+    val_split: float = 0.1,
+    image_size: int = 64,
+    augment_train: bool = True
+) -> Tuple[DataLoader, DataLoader, DataLoader]:
+    """
+    Get CelebA data loaders from pre-extracted img_align_celeba/ folder.
+
+    Expects: {data_root}/celeba/img_align_celeba/*.jpg
+    No metadata files required — VAE training is unsupervised.
+
+    Args:
+        data_root: Root directory for data
+        batch_size: Batch size
+        num_workers: Number of data loading workers
+        val_split: Fraction of data for validation
+        image_size: Target image size
+        augment_train: Whether to apply data augmentation to training set
+
+    Returns:
+        train_loader, val_loader, test_loader
+    """
+    import os
+
+    img_dir = Path(data_root) / 'celeba' / 'img_align_celeba'
+    if not img_dir.exists():
+        raise FileNotFoundError(
+            f"CelebA images not found at {img_dir}. "
+            "Please extract img_align_celeba.zip to data/celeba/"
+        )
+
+    crop_size = 178  # standard CelebA center crop
+
+    if augment_train:
+        train_transform = transforms.Compose([
+            transforms.CenterCrop(crop_size),
+            transforms.Resize(image_size),
+            transforms.RandomHorizontalFlip(p=0.5),
+            transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1),
+            transforms.ToTensor(),
+        ])
+    else:
+        train_transform = transforms.Compose([
+            transforms.CenterCrop(crop_size),
+            transforms.Resize(image_size),
+            transforms.ToTensor(),
+        ])
+
+    eval_transform = transforms.Compose([
+        transforms.CenterCrop(crop_size),
+        transforms.Resize(image_size),
+        transforms.ToTensor(),
+    ])
+
+    # Load all image paths and split manually (no metadata needed)
+    all_images = sorted([
+        str(img_dir / f) for f in os.listdir(img_dir)
+        if f.lower().endswith('.jpg')
+    ])
+
+    # Use standard CelebA splits: 162k train, 20k val, 20k test
+    n_train, n_val = 162770, 19867
+    train_paths = all_images[:n_train]
+    val_paths   = all_images[n_train:n_train + n_val]
+    test_paths  = all_images[n_train + n_val:]
+
+    class CelebAImageDataset(Dataset):
+        def __init__(self, paths, transform):
+            self.paths = paths
+            self.transform = transform
+
+        def __len__(self):
+            return len(self.paths)
+
+        def __getitem__(self, idx):
+            image = Image.open(self.paths[idx]).convert('RGB')
+            if self.transform:
+                image = self.transform(image)
+            return image, 0  # dummy label — VAE doesn't use it
+
+    train_dataset = CelebAImageDataset(train_paths, train_transform)
+    val_dataset   = CelebAImageDataset(val_paths,   eval_transform)
+    test_dataset  = CelebAImageDataset(test_paths,  eval_transform)
+
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True,
+        num_workers=num_workers, pin_memory=True, drop_last=True
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers, pin_memory=True, drop_last=False
+    )
+    test_loader = DataLoader(
+        test_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers, pin_memory=True, drop_last=False
+    )
+
+    print(f"CelebA Data Loaders:")
+    print(f"  Training samples:   {len(train_dataset)}")
+    print(f"  Validation samples: {len(val_dataset)}")
+    print(f"  Test samples:       {len(test_dataset)}")
+    print(f"  Batch size:         {batch_size}")
+    print(f"  Image size:         {image_size}x{image_size}")
+
+    return train_loader, val_loader, test_loader
+
+
 def get_medical_mnist_loaders(
     data_root: str = './data',
     batch_size: int = 64,
