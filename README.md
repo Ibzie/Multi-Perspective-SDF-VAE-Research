@@ -82,8 +82,8 @@ Full write-up: [`paper/paper.pdf`](paper/paper.pdf) · Architecture diagrams: [`
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE.git
-cd Multi-Perspective-SDF-VAE
+git clone https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research.git
+cd Multi-Perspective-SDF-VAE-Research
 
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -192,7 +192,7 @@ See [`requirements.txt`](requirements.txt) for the full pinned list.
   author  = {Akhtar, Ibrahim},
   year    = {2026},
   note    = {Independent research project},
-  url     = {https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE}
+  url     = {https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research}
 }
 ```
 
