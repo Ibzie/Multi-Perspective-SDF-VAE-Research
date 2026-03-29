@@ -6,8 +6,8 @@ abstract: "An exploratory variational autoencoder that uses multi-perspective si
 authors:
   - family-names: "Akhtar"
     given-names: "Ibrahim"
-repository-code: "https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE"
-url: "https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE"
+repository-code: "https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research"
+url: "https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research"
 keywords:
   - deep-learning
   - variational-autoencoder

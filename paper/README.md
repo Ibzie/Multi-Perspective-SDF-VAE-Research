@@ -310,11 +310,12 @@ Concise summary highlighting three key achievements:
 ### Provisional Citation
 
 ```bibtex
-@article{multiperspective_sdf_vae_2025,
-  title={Multi-Perspective SDF-VAE: Interpretable Latent Representations through Signed Distance Functions},
-  author={[Your Name]},
-  journal={arXiv preprint arXiv:XXXX.XXXXX},
-  year={2025}
+@misc{akhtar2026sdfvae,
+  title={Multi-Perspective {SDF}-{VAE}: Interpretable Latent Representations through Signed Distance Functions},
+  author={Akhtar, Ibrahim},
+  year={2026},
+  note={Independent research project},
+  url={https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research}
 }
 ```
 
@@ -347,9 +348,7 @@ Special thanks to the open-source community for:
 
 ## License
 
-[To be determined upon publication]
-
-Provisional: MIT License for code, CC-BY 4.0 for paper/figures
+MIT License — see [`LICENSE`](../LICENSE).
 
 ---
 

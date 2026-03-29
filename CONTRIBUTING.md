@@ -18,7 +18,7 @@ This is an independent research project exploring interpretable latent represent
 
 1. **Fork the Repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/Multi-Perspective-SDF-VAE-Research.git
+   git clone https://github.com/Ibzie/Multi-Perspective-SDF-VAE-Research.git
    cd Multi-Perspective-SDF-VAE-Research
    ```
 
