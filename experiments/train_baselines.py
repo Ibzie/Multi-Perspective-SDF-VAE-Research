@@ -22,7 +22,7 @@ from tqdm import tqdm
 import argparse
 
 from src.models import VanillaVAE, BetaVAE, BaselineVAELoss
-from src.data import get_fashion_mnist_loaders, get_medical_mnist_loaders
+from src.data import get_fashion_mnist_loaders, get_medical_mnist_loaders, get_celeba_loaders
 from src.utils import MetricsLogger
 
 
@@ -38,7 +38,7 @@ def parse_args():
 
     # Dataset
     parser.add_argument('--dataset', type=str, default='fashion',
-                        choices=['fashion', 'medical'],
+                        choices=['fashion', 'medical', 'celeba'],
                         help='Dataset to use')
     parser.add_argument('--data_root', type=str, default='./data',
                         help='Root directory for datasets')
@@ -104,9 +104,10 @@ def train_epoch(model, train_loader, optimizer, loss_fn, device):
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
-        # Accumulate
-        for key in epoch_losses.keys():
-            epoch_losses[key] += losses[key].item()
+        # Accumulate (map 'total' key)
+        epoch_losses['total'] += losses['total'].item()
+        epoch_losses['reconstruction'] += losses['reconstruction'].item()
+        epoch_losses['kl'] += losses['kl'].item()
 
     # Average
     num_batches = len(train_loader)
@@ -137,9 +138,10 @@ def validate_epoch(model, val_loader, loss_fn, device):
                 logvar=output['logvar']
             )
 
-            # Accumulate
-            for key in epoch_losses.keys():
-                epoch_losses[key] += losses[key].item()
+            # Accumulate (map 'total' key)
+            epoch_losses['total'] += losses['total'].item()
+            epoch_losses['reconstruction'] += losses['reconstruction'].item()
+            epoch_losses['kl'] += losses['kl'].item()
 
     # Average
     num_batches = len(val_loader)
@@ -175,6 +177,13 @@ def main():
     print("\nLoading data...")
     if args.dataset == 'fashion':
         train_loader, val_loader, test_loader = get_fashion_mnist_loaders(
+            data_root=args.data_root,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            image_size=args.image_size
+        )
+    elif args.dataset == 'celeba':
+        train_loader, val_loader, test_loader = get_celeba_loaders(
             data_root=args.data_root,
             batch_size=args.batch_size,
             num_workers=args.num_workers,

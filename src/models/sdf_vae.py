@@ -72,9 +72,10 @@ class MultiPerspectiveSDFVAE(nn.Module):
         self.light_source = LightSource(encoder_output_dim, light_dim)
 
         # 3. Multi-Perspective Observers - Each learns unique SDF and features
+        # Observers see BOTH raw features AND light projection (shadow mechanism)
         self.observers = nn.ModuleList([
             SDFObserver(
-                input_dim=light_dim,
+                input_dim=encoder_output_dim + light_dim,  # Features + Light = Shadow view
                 hidden_dims=observer_hidden_dims,
                 projection_dim=projection_dim,
                 observer_id=i
@@ -95,6 +96,26 @@ class MultiPerspectiveSDFVAE(nn.Module):
             output_channels=in_channels,
             image_size=image_size
         )
+
+        # Initialize weights with conservative Xavier initialization for stability
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        """
+        Initialize network weights using Xavier uniform with conservative gain
+
+        This matches the original implementation for better training stability.
+        """
+        if isinstance(m, nn.Linear):
+            # Conservative initialization (gain=0.8) for better stability
+            nn.init.xavier_uniform_(m.weight, gain=0.8)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+        elif isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
+            # Also apply to convolutional layers
+            nn.init.xavier_uniform_(m.weight, gain=0.8)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
 
     def forward(
         self,
@@ -124,15 +145,19 @@ class MultiPerspectiveSDFVAE(nn.Module):
         # 1. Encode image to features
         encoder_features, spatial_features = self.cnn_encoder(x)
 
-        # 2. Project through light source
+        # 2. Project through light source (universal illumination)
         light_projection = self.light_source(encoder_features)
 
-        # 3. Forward through all observers
+        # 3. Create observer input: concatenate features + light (shadow mechanism!)
+        # This is the KEY differentiator - observers see the object UNDER the light
+        observer_input = torch.cat([encoder_features, light_projection], dim=1)
+
+        # 4. Forward through all observers with shadow view
         sdf_values = []
         feature_projections = []
 
         for observer in self.observers:
-            sdf, features = observer(light_projection)
+            sdf, features = observer(observer_input)  # Shadow-based observation
             sdf_values.append(sdf)
             feature_projections.append(features)
 

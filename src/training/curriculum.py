@@ -45,9 +45,10 @@ class CurriculumScheduler:
         self.base_weights = {
             'alpha': 1.0,      # Reconstruction
             'beta': 0.2,       # KL divergence
-            'gamma': 0.1,      # SDF consistency
-            'delta': 0.05,     # Eikonal
-            'epsilon': 0.1     # Diversity
+            'gamma': 1.0,      # SDF consistency (increased from 0.1)
+            'delta': 0.5,      # Eikonal (increased from 0.05)
+            'epsilon': 0.1,    # Diversity
+            'zeta': 0.5        # SDF supervision (NEW)
         }
 
     def get_loss_weights(self, epoch: int) -> Dict[str, float]:
@@ -69,48 +70,45 @@ class CurriculumScheduler:
                 'beta': 0.0,
                 'gamma': 0.0,
                 'delta': 0.0,
-                'epsilon': 0.0
+                'epsilon': 0.0,
+                'zeta': 0.0
             }
 
-        # Stage 2 (Epochs 3-10): Gradually introduce KL and diversity
+        # Stage 2 (Epochs 3-10): Introduce KL, diversity, and SDF supervision
         elif epoch < 10:
             progress = (epoch - 3) / 7.0  # 0 to 1 over epochs 3-10
 
             return {
                 'alpha': 1.0,
                 'beta': self.base_weights['beta'] * progress,
-                'gamma': 0.0,
-                'delta': 0.0,
-                'epsilon': self.base_weights['epsilon'] * progress
+                'gamma': 0.0,  # SDF consistency comes later
+                'delta': 0.0,  # Eikonal comes later
+                'epsilon': self.base_weights['epsilon'] * progress,
+                'zeta': self.base_weights['zeta'] * progress  # Start SDF supervision early!
             }
 
-        # Stage 3 (Epochs 10-20): Introduce SDF consistency
+        # Stage 3 (Epochs 10-20): Introduce SDF consistency and Eikonal
         elif epoch < 20:
             progress = (epoch - 10) / 10.0  # 0 to 1 over epochs 10-20
 
             return {
                 'alpha': 1.0,
                 'beta': self.base_weights['beta'],
-                'gamma': self.base_weights['gamma'] * progress,
-                'delta': 0.0,  # Still no Eikonal (expensive)
-                'epsilon': self.base_weights['epsilon']
+                'gamma': self.base_weights['gamma'] * progress,  # SDF consistency
+                'delta': self.base_weights['delta'] * progress,  # Eikonal (start earlier!)
+                'epsilon': self.base_weights['epsilon'],
+                'zeta': self.base_weights['zeta']  # Full supervision
             }
 
         # Stage 4 (Epoch 20+): Full model with all components
         else:
-            # Optionally introduce Eikonal very gradually
-            if epoch < 30:
-                eikonal_progress = (epoch - 20) / 10.0
-                delta = self.base_weights['delta'] * eikonal_progress
-            else:
-                delta = self.base_weights['delta']
-
             return {
                 'alpha': 1.0,
                 'beta': self.base_weights['beta'],
                 'gamma': self.base_weights['gamma'],
-                'delta': delta,
-                'epsilon': self.base_weights['epsilon']
+                'delta': self.base_weights['delta'],
+                'epsilon': self.base_weights['epsilon'],
+                'zeta': self.base_weights['zeta']
             }
 
     def get_learning_rate_scale(self, epoch: int) -> float:
